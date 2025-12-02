@@ -192,18 +192,21 @@ const Flipbook: React.FC<FlipbookProps> = ({ pdfPath, onClose }) => {
                             minHeight={isMobile ? 424 : 565}
                             maxHeight={isMobile ? 700 : 990}
                             maxShadowOpacity={0.5}
-                            showCover={true}
+                            showCover={false}
                             mobileScrollSupport={true}
                             swipeDistance={30}
                             clickEventForward={false}
                             useMouseEvents={true}
                             className="shadow-2xl mx-auto"
-                            flippingTime={600}
+                            flippingTime={400}
                             drawShadow={true}
                             usePortrait={isMobile}
                             onFlip={onFlip}
                         >
-                            {/* All pages - showCover will display page 1 alone, then pairs */}
+                            {/* Blank page for proper alignment with soft cover */}
+                            <div key="blank_page" style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px`, backgroundColor: 'transparent' }} />
+
+                            {/* All PDF pages */}
                             {Array.from(new Array(numPages), (_, index) => {
                                 const pageNum = index + 1;
                                 // Load pages within range: current page +/- 5 (reduced from 10 for performance)

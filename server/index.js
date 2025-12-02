@@ -66,7 +66,7 @@ const writeData = async (data) => {
 };
 
 // Auth Middleware
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'syediscool';
 
 const authenticate = (req, res, next) => {
     const password = req.headers['x-admin-password'];

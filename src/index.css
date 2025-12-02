@@ -40,6 +40,20 @@
   }
 }
 
+/* Remove white line/gap between pages in flipbook */
+.stf__wrapper {
+  gap: 0 !important;
+}
+
+.stf__item {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.stf__block {
+  gap: 0 !important;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
