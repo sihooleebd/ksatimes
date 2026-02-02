@@ -20,7 +20,7 @@ A digital magazine viewer for KSA student publications, featuring an interactive
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/sihooleebd/ksatimes
 cd ksatimes
 
 # Install frontend dependencies
