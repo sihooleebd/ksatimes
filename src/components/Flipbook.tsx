@@ -18,15 +18,16 @@ interface PageProps {
     height: number;
     shouldRender: boolean;
     isCover?: boolean;
+    isOddPage?: boolean; // Odd pages are on the right side of the spread
 }
 
 
 // Wrapper for PDF Page to be used in FlipBook
-const PDFPage = forwardRef<HTMLDivElement, PageProps>(({ pageNumber, width, height, shouldRender, isCover = false }, ref) => {
+const PDFPage = forwardRef<HTMLDivElement, PageProps>(({ pageNumber, width, height, shouldRender, isCover = false, isOddPage = false }, ref) => {
     return (
         <div
             ref={ref}
-            className={`shadow-sm overflow-hidden flex items-center justify-center ${isCover ? 'bg-gradient-to-br from-warm-brown/5 to-warm-brown/10' : 'bg-white'
+            className={`overflow-hidden flex items-center justify-center relative ${isCover ? 'bg-gradient-to-br from-warm-brown/5 to-warm-brown/10' : 'bg-white'
                 }`}
             style={{ width: `${width}px`, height: `${height}px` }}
         >
@@ -50,6 +51,17 @@ const PDFPage = forwardRef<HTMLDivElement, PageProps>(({ pageNumber, width, heig
                     <div className="animate-pulse w-12 h-12 rounded-full bg-gray-200"></div>
                 </div>
             )}
+            {/* Book spine shadow overlay */}
+            <div
+                className="absolute top-0 bottom-0 pointer-events-none"
+                style={{
+                    width: '50px',
+                    ...(isOddPage
+                        ? { left: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.15), transparent)' }
+                        : { right: 0, background: 'linear-gradient(to left, rgba(0,0,0,0.15), transparent)' }
+                    )
+                }}
+            />
         </div>
     );
 });
@@ -192,7 +204,7 @@ const Flipbook: React.FC<FlipbookProps> = ({ pdfPath, onClose }) => {
                             minHeight={isMobile ? 424 : 565}
                             maxHeight={isMobile ? 700 : 990}
                             maxShadowOpacity={0.5}
-                            showCover={false}
+                            showCover={isMobile}
                             mobileScrollSupport={true}
                             swipeDistance={30}
                             clickEventForward={false}
@@ -203,28 +215,38 @@ const Flipbook: React.FC<FlipbookProps> = ({ pdfPath, onClose }) => {
                             usePortrait={isMobile}
                             onFlip={onFlip}
                         >
-                            {/* Blank page for proper alignment with soft cover */}
-                            <div key="blank_page" style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px`, backgroundColor: 'transparent' }} />
+                            {(() => {
+                                const pages = [];
 
-                            {/* All PDF pages */}
-                            {Array.from(new Array(numPages), (_, index) => {
-                                const pageNum = index + 1;
-                                // Load pages within range: current page +/- 5 (reduced from 10 for performance)
-                                // Note: currentPage from react-pageflip is 0-indexed
-                                const shouldRender = Math.abs(index - currentPage) <= 5;
-                                const isCover = index === 0;
+                                // Add blank page for proper alignment - only on desktop
+                                if (!isMobile) {
+                                    pages.push(
+                                        <div key="blank_page" style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px`, backgroundColor: 'transparent' }} />
+                                    );
+                                }
 
-                                return (
-                                    <PDFPage
-                                        key={`page_${pageNum}`}
-                                        pageNumber={pageNum}
-                                        width={dimensions.width}
-                                        height={dimensions.height}
-                                        shouldRender={shouldRender}
-                                        isCover={isCover}
-                                    />
-                                );
-                            })}
+                                // Add all PDF pages
+                                for (let index = 0; index < numPages; index++) {
+                                    const pageNum = index + 1;
+                                    const shouldRender = Math.abs(index - currentPage) <= 5;
+                                    const isCover = index === 0;
+                                    const isOddPage = isMobile ? true : (index + 1) % 2 === 1;
+
+                                    pages.push(
+                                        <PDFPage
+                                            key={`page_${pageNum}`}
+                                            pageNumber={pageNum}
+                                            width={dimensions.width}
+                                            height={dimensions.height}
+                                            shouldRender={shouldRender}
+                                            isCover={isCover}
+                                            isOddPage={isOddPage}
+                                        />
+                                    );
+                                }
+
+                                return pages;
+                            })()}
                         </HTMLFlipBook>
                     )}
                 </Document>

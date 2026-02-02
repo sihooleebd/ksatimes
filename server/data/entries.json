@@ -1,0 +1,101 @@
+[
+    {
+        "id": "e3da867cc870390a",
+        "title": "2023 KSA English Writing Contest",
+        "publishDate": "2023",
+        "authors": [
+            "KSA Students"
+        ],
+        "type": "ewc"
+    },
+    {
+        "id": "efeee694e8ca1dd7",
+        "title": "2022 KSA English Writing Contest",
+        "publishDate": "2022",
+        "authors": [
+            "KSA Students"
+        ],
+        "type": "ewc"
+    },
+    {
+        "id": "3e48e595e783bce8",
+        "title": "KSA Times Issue 26",
+        "publishDate": "2025",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "a99d6fa6c39ad9e9",
+        "title": "KSA Times Issue 25",
+        "publishDate": "2025",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "9ff13aa27a8d6374",
+        "title": "KSA Times Issue 24",
+        "publishDate": "2024",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "cf9c0aa0fe359a64",
+        "title": "KSA Times Issue 23",
+        "publishDate": "2024",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "c8b3a0351fbc16d9",
+        "title": "KSA Times Issue 22",
+        "publishDate": "2023",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "277bc1d006d5f741",
+        "title": "KSA Times Issue 21",
+        "publishDate": "2023",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "afcf07544ab4ea1c",
+        "title": "KSA Times Issue 20",
+        "publishDate": "2022",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "7fd41ff7f79369c8",
+        "title": "KSA Times Issue 19",
+        "publishDate": "2022",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    },
+    {
+        "id": "af516b07e8391c0b",
+        "title": "KSA Times Issue 18",
+        "publishDate": "2021",
+        "authors": [
+            "KSA Times Team"
+        ],
+        "type": "magazines"
+    }
+]

@@ -11,23 +11,43 @@ interface Magazine {
     thumbnailPath?: string;
 }
 
-const Home: React.FC = () => {
+interface HomeProps {
+    type: 'ksatimes' | 'ewc';
+}
+
+const contentConfig = {
+    ksatimes: {
+        title: 'KSA TIMES',
+        description: 'Exploring culture, art, and stories written by KSA students.',
+        apiEndpoint: '/api/magazines',
+        footerText: 'KSA TIMES is an official research group of the',
+    },
+    ewc: {
+        title: 'English Writing Contest',
+        description: 'Showcasing exceptional English writing from talented KSA students.',
+        apiEndpoint: '/api/ewc',
+        footerText: 'English Writing Contest is organized by',
+    },
+};
+
+const Home: React.FC<HomeProps> = ({ type }) => {
+    const config = contentConfig[type];
     const [magazines, setMagazines] = useState<Magazine[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedMagazineId, setSelectedMagazineId] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch('/api/magazines')
+        fetch(config.apiEndpoint)
             .then(res => res.json())
             .then(data => {
                 setMagazines(data);
                 setLoading(false);
             })
             .catch(err => {
-                console.error('Error loading magazines:', err);
+                console.error('Error loading content:', err);
                 setLoading(false);
             });
-    }, []);
+    }, [config.apiEndpoint]);
 
     const handleMagazineClick = (id: string) => {
         setSelectedMagazineId(id);
@@ -44,10 +64,10 @@ const Home: React.FC = () => {
             <div className="mx-auto max-w-7xl">
                 <header className="mb-16 text-center">
                     <h1 className="mb-4 font-serif text-5xl font-bold tracking-tight text-warm-brown sm:text-6xl">
-                        KSA TIMES
+                        {config.title}
                     </h1>
                     <p className="mx-auto max-w-2xl text-lg text-warm-brown/80">
-                        Exploring culture, art, and stories written by KSA students.
+                        {config.description}
                     </p>
                 </header>
 
@@ -65,20 +85,19 @@ const Home: React.FC = () => {
                 </main>
 
                 <footer className="mt-24 text-center text-sm text-warm-brown/60">
-                    <p>&copy; {new Date().getFullYear()} KSA TIMES. All rights reserved. KSA TIMES is an official research group of the <a href="https://www.ksa.hs.kr">KSA of KAIST</a>.</p>
+                    <p>&copy; {new Date().getFullYear()} {config.title}. All rights reserved. {config.footerText} <a href="https://www.ksa.hs.kr" className="underline hover:text-warm-brown">KSA of KAIST</a>.</p>
                     <p className="mt-2 text-xs text-gray-500">Developer: 25-083 이시후</p>
+                    <a href="/admin" className="mt-2 inline-block text-xs text-warm-brown/40 hover:text-warm-brown transition-colors">Admin</a>
                 </footer>
             </div>
 
-            {
-                selectedMagazine && (
-                    <Flipbook
-                        pdfPath={selectedMagazine.pdfPath}
-                        onClose={handleCloseReader}
-                    />
-                )
-            }
-        </div >
+            {selectedMagazine && (
+                <Flipbook
+                    pdfPath={selectedMagazine.pdfPath}
+                    onClose={handleCloseReader}
+                />
+            )}
+        </div>
     );
 };
 

@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { pdfjs } from 'react-pdf';
+
+// Ensure worker is set up
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface Magazine {
     id: string;
@@ -9,30 +14,51 @@ interface Magazine {
     thumbnailPath?: string;
 }
 
-import { pdfjs } from 'react-pdf';
-// Ensure worker is set up
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+type ContentType = 'ksatimes' | 'ewc';
+
+const contentConfig = {
+    ksatimes: {
+        label: 'KSA TIMES',
+        apiEndpoint: '/api/magazines',
+        itemName: 'Magazine',
+    },
+    ewc: {
+        label: 'English Writing Contest',
+        apiEndpoint: '/api/ewc',
+        itemName: 'Entry',
+    },
+};
 
 const Admin: React.FC = () => {
-    const [magazines, setMagazines] = useState<Magazine[]>([]);
+    const [activeTab, setActiveTab] = useState<ContentType>('ksatimes');
+    const [items, setItems] = useState<Magazine[]>([]);
     const [title, setTitle] = useState('');
     const [publishDate, setPublishDate] = useState('');
     const [authors, setAuthors] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Auth state
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
     const [inputPassword, setInputPassword] = useState('');
 
-    const fetchMagazines = async () => {
+    // Edit state
+    const [editingItem, setEditingItem] = useState<Magazine | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editPublishDate, setEditPublishDate] = useState('');
+    const [editAuthors, setEditAuthors] = useState('');
+
+    const config = contentConfig[activeTab];
+
+    const fetchItems = async () => {
         try {
-            const res = await fetch('/api/magazines');
+            const res = await fetch(config.apiEndpoint);
             const data = await res.json();
-            setMagazines(data);
+            setItems(data);
         } catch (error) {
-            console.error('Error fetching magazines:', error);
+            console.error(`Error fetching ${config.itemName.toLowerCase()}s:`, error);
         }
     };
 
@@ -40,10 +66,14 @@ const Admin: React.FC = () => {
         const storedPassword = localStorage.getItem('adminPassword');
         if (storedPassword) {
             verifyPassword(storedPassword);
-        } else {
-            fetchMagazines(); // Still fetch list even if not logged in (optional, but good for UX)
         }
     }, []);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchItems();
+        }
+    }, [activeTab, isAuthenticated]);
 
     const verifyPassword = async (pwd: string) => {
         try {
@@ -57,7 +87,7 @@ const Admin: React.FC = () => {
                 setIsAuthenticated(true);
                 setPassword(pwd);
                 localStorage.setItem('adminPassword', pwd);
-                fetchMagazines();
+                fetchItems();
             } else {
                 localStorage.removeItem('adminPassword');
                 setIsAuthenticated(false);
@@ -92,12 +122,10 @@ const Admin: React.FC = () => {
             const pdf = await pdfjs.getDocument(arrayBuffer).promise;
             const page = await pdf.getPage(1);
 
-            const viewport = page.getViewport({ scale: 1.0 }); // Scale 1.0 is usually enough for thumbnail
+            const viewport = page.getViewport({ scale: 1.0 });
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
 
-            // Set dimensions to match magazine ratio or just keep original aspect ratio
-            // Magazine ratio is approx 1:1.3407
             canvas.width = viewport.width;
             canvas.height = viewport.height;
 
@@ -142,7 +170,7 @@ const Admin: React.FC = () => {
         }
 
         try {
-            const res = await fetch('/api/magazines', {
+            const res = await fetch(config.apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'x-admin-password': password
@@ -151,28 +179,31 @@ const Admin: React.FC = () => {
             });
 
             if (res.ok) {
-                alert('Magazine added successfully');
+                alert(`${config.itemName} added successfully`);
                 setTitle('');
                 setPublishDate('');
                 setAuthors('');
                 setFile(null);
-                fetchMagazines();
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                fetchItems();
             } else {
-                alert('Failed to add magazine');
+                alert(`Failed to add ${config.itemName.toLowerCase()}`);
             }
         } catch (error) {
-            console.error('Error adding magazine:', error);
-            alert('Error adding magazine');
+            console.error(`Error adding ${config.itemName.toLowerCase()}:`, error);
+            alert(`Error adding ${config.itemName.toLowerCase()}`);
         } finally {
             setLoading(false);
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this magazine?')) return;
+        if (!confirm(`Are you sure you want to delete this ${config.itemName.toLowerCase()}?`)) return;
 
         try {
-            const res = await fetch(`/api/magazines/${id}`, {
+            const res = await fetch(`${config.apiEndpoint}/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'x-admin-password': password
@@ -180,22 +211,21 @@ const Admin: React.FC = () => {
             });
 
             if (res.ok) {
-                fetchMagazines();
+                fetchItems();
             } else {
-                alert('Failed to delete magazine');
+                alert(`Failed to delete ${config.itemName.toLowerCase()}`);
             }
         } catch (error) {
-            console.error('Error deleting magazine:', error);
+            console.error(`Error deleting ${config.itemName.toLowerCase()}:`, error);
         }
     };
 
-    const handleMigration = async (magazine: Magazine) => {
-        if (!magazine.pdfPath) return;
+    const handleMigration = async (item: Magazine) => {
+        if (!item.pdfPath) return;
 
         try {
             setLoading(true);
-            // Fetch the PDF
-            const response = await fetch(magazine.pdfPath);
+            const response = await fetch(item.pdfPath);
             const blob = await response.blob();
             const pdfFile = new File([blob], "temp.pdf", { type: "application/pdf" });
 
@@ -204,9 +234,9 @@ const Admin: React.FC = () => {
             if (thumbnailBlob) {
                 const formData = new FormData();
                 formData.append('thumbnail', thumbnailBlob, 'thumbnail.jpg');
-                formData.append('title', magazine.title);
+                formData.append('title', item.title);
 
-                const res = await fetch(`/api/magazines/${magazine.id}/thumbnail`, {
+                const res = await fetch(`${config.apiEndpoint}/${item.id}/thumbnail`, {
                     method: 'POST',
                     headers: {
                         'x-admin-password': password
@@ -215,16 +245,57 @@ const Admin: React.FC = () => {
                 });
 
                 if (res.ok) {
-                    // Update local state
                     const data = await res.json();
-                    setMagazines(prev => prev.map(m => m.id === magazine.id ? { ...m, thumbnailPath: data.thumbnailPath } : m));
-                    console.log(`Thumbnail generated for ${magazine.title}`);
+                    setItems(prev => prev.map(m => m.id === item.id ? { ...m, thumbnailPath: data.thumbnailPath } : m));
+                    console.log(`Thumbnail generated for ${item.title}`);
                 } else {
-                    console.error(`Failed to upload thumbnail for ${magazine.title}`);
+                    console.error(`Failed to upload thumbnail for ${item.title}`);
                 }
             }
         } catch (error) {
-            console.error(`Error migrating ${magazine.title}:`, error);
+            console.error(`Error migrating ${item.title}:`, error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleStartEdit = (item: Magazine) => {
+        setEditingItem(item);
+        setEditTitle(item.title);
+        setEditPublishDate(item.publishDate);
+        setEditAuthors(item.authors.join(', '));
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingItem) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch(`${config.apiEndpoint}/${editingItem.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-password': password
+                },
+                body: JSON.stringify({
+                    title: editTitle,
+                    publishDate: editPublishDate,
+                    authors: editAuthors.split(',').map(a => a.trim())
+                })
+            });
+
+            if (res.ok) {
+                const updatedItem = await res.json();
+                setItems(prev => prev.map(m => m.id === editingItem.id ? updatedItem : m));
+                setEditingItem(null);
+                alert(`${config.itemName} updated successfully`);
+            } else {
+                alert(`Failed to update ${config.itemName.toLowerCase()}`);
+            }
+        } catch (error) {
+            console.error(`Error updating ${config.itemName.toLowerCase()}:`, error);
+            alert(`Error updating ${config.itemName.toLowerCase()}`);
         } finally {
             setLoading(false);
         }
@@ -262,17 +333,45 @@ const Admin: React.FC = () => {
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-4xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">KSA Times Admin</h1>
-                    <button
-                        onClick={handleLogout}
-                        className="text-sm text-gray-600 hover:text-gray-900 underline"
-                    >
-                        Logout
-                    </button>
+                    <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
+                    <div className="flex items-center gap-4">
+                        <Link
+                            to="/"
+                            className="text-sm text-gray-600 hover:text-gray-900 underline"
+                        >
+                            Return to Main
+                        </Link>
+                        <button
+                            onClick={handleLogout}
+                            className="text-sm text-gray-600 hover:text-gray-900 underline"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="mb-8">
+                    <div className="border-b border-gray-200">
+                        <nav className="-mb-px flex space-x-8">
+                            {(Object.keys(contentConfig) as ContentType[]).map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab
+                                        ? 'border-indigo-500 text-indigo-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                >
+                                    {contentConfig[tab].label}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-lg shadow p-6 mb-8">
-                    <h2 className="text-xl font-semibold mb-4">Add New Magazine</h2>
+                    <h2 className="text-xl font-semibold mb-4">Add New {config.itemName}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Title</label>
@@ -308,6 +407,7 @@ const Admin: React.FC = () => {
                             <input
                                 type="file"
                                 accept=".pdf"
+                                ref={fileInputRef}
                                 onChange={handleFileChange}
                                 className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                 required
@@ -318,43 +418,107 @@ const Admin: React.FC = () => {
                             disabled={loading}
                             className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                         >
-                            {loading ? 'Uploading...' : 'Add Magazine'}
+                            {loading ? 'Uploading...' : `Add ${config.itemName}`}
                         </button>
                     </form>
                 </div>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <h2 className="text-xl font-semibold p-6 border-b">Existing Magazines</h2>
+                    <h2 className="text-xl font-semibold p-6 border-b">Existing {config.itemName}s</h2>
                     <ul className="divide-y divide-gray-200">
-                        {magazines.map((magazine) => (
-                            <li key={magazine.id} className="p-6 flex items-center justify-between">
+                        {items.map((item) => (
+                            <li key={item.id} className="p-6 flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-lg font-medium text-gray-900">{magazine.title}</h3>
-                                    <p className="text-sm text-gray-500">{magazine.publishDate} • {magazine.authors.join(', ')}</p>
+                                    <h3 className="text-lg font-medium text-gray-900">{item.title}</h3>
+                                    <p className="text-sm text-gray-500">{item.publishDate} • {item.authors.join(', ')}</p>
                                 </div>
-                                <button
-                                    onClick={() => handleDelete(magazine.id)}
-                                    className="text-red-600 hover:text-red-900 font-medium"
-                                >
-                                    Delete
-                                </button>
-                                {!magazine.thumbnailPath && (
+                                <div className="flex items-center gap-4">
+                                    {!item.thumbnailPath && (
+                                        <button
+                                            onClick={() => handleMigration(item)}
+                                            className="text-blue-600 hover:text-blue-900 font-medium"
+                                            disabled={loading}
+                                        >
+                                            Generate Thumbnail
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={() => handleMigration(magazine)}
-                                        className="ml-4 text-blue-600 hover:text-blue-900 font-medium"
-                                        disabled={loading}
+                                        onClick={() => handleStartEdit(item)}
+                                        className="text-indigo-600 hover:text-indigo-900 font-medium"
                                     >
-                                        Generate Thumbnail
+                                        Edit
                                     </button>
-                                )}
+                                    <button
+                                        onClick={() => handleDelete(item.id)}
+                                        className="text-red-600 hover:text-red-900 font-medium"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
                             </li>
                         ))}
-                        {magazines.length === 0 && (
-                            <li className="p-6 text-center text-gray-500">No magazines found.</li>
+                        {items.length === 0 && (
+                            <li className="p-6 text-center text-gray-500">No {config.itemName.toLowerCase()}s found.</li>
                         )}
                     </ul>
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {editingItem && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-semibold mb-4">Edit {config.itemName}</h3>
+                        <form onSubmit={handleUpdate} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Title</label>
+                                <input
+                                    type="text"
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Publish Year</label>
+                                <input
+                                    type="text"
+                                    value={editPublishDate}
+                                    onChange={(e) => setEditPublishDate(e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Authors (comma separated)</label>
+                                <input
+                                    type="text"
+                                    value={editAuthors}
+                                    onChange={(e) => setEditAuthors(e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="flex-1 py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {loading ? 'Saving...' : 'Save Changes'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingItem(null)}
+                                    className="flex-1 py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
