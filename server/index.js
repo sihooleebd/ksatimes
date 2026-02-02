@@ -5,12 +5,13 @@ import fs from 'fs-extra';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -63,19 +64,56 @@ const writeData = async (data) => {
     }
 };
 
-// Auth
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'syediscool';
+// Auth - require ADMIN_PASSWORD environment variable
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+    console.error('FATAL: ADMIN_PASSWORD environment variable is not set.');
+    console.error('Create a .env file with ADMIN_PASSWORD=your_secure_password');
+    process.exit(1);
+}
 
 const authenticate = (req, res, next) => {
     const password = req.headers['x-admin-password'];
-    if (password === ADMIN_PASSWORD) next();
+    if (password && password === ADMIN_PASSWORD) next();
     else res.status(401).json({ error: 'Unauthorized' });
+};
+
+// Input validation middleware
+const validateInput = (req, res, next) => {
+    const { title, publishDate, authors } = req.body;
+
+    // Validate title
+    if (title && (typeof title !== 'string' || title.length > 500)) {
+        return res.status(400).json({ error: 'Invalid title: must be a string under 500 characters' });
+    }
+
+    // Validate publishDate
+    if (publishDate && (typeof publishDate !== 'string' || !/^\d{4}$/.test(publishDate))) {
+        return res.status(400).json({ error: 'Invalid publishDate: must be a 4-digit year' });
+    }
+
+    // Validate authors
+    if (authors) {
+        try {
+            const parsed = typeof authors === 'string' ? JSON.parse(authors) : authors;
+            if (!Array.isArray(parsed) || parsed.some(a => typeof a !== 'string')) {
+                return res.status(400).json({ error: 'Invalid authors: must be an array of strings' });
+            }
+        } catch {
+            return res.status(400).json({ error: 'Invalid authors: must be valid JSON array' });
+        }
+    }
+
+    next();
 };
 
 app.post('/api/auth/verify', (req, res) => {
     const { password } = req.body;
-    if (password === ADMIN_PASSWORD) res.json({ success: true });
-    else res.status(401).json({ error: 'Invalid password' });
+    if (password && typeof password === 'string' && password === ADMIN_PASSWORD) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ error: 'Invalid password' });
+    }
 });
 
 // Route factory - filters by type
@@ -93,7 +131,7 @@ const createRoutes = (type, basePath) => {
     });
 
     // POST - add new item
-    app.post(basePath, authenticate, uploadFields, async (req, res) => {
+    app.post(basePath, authenticate, uploadFields, validateInput, async (req, res) => {
         try {
             const { title, publishDate, authors } = req.body;
             const pdfFile = req.files['pdf']?.[0];
@@ -155,7 +193,7 @@ const createRoutes = (type, basePath) => {
     });
 
     // PUT - update item metadata
-    app.put(`${basePath}/:id`, authenticate, async (req, res) => {
+    app.put(`${basePath}/:id`, authenticate, validateInput, async (req, res) => {
         try {
             const { id } = req.params;
             const { title, publishDate, authors } = req.body;
@@ -214,6 +252,19 @@ const createRoutes = (type, basePath) => {
 // Create routes for both content types
 createRoutes('magazines', '/api/magazines');
 createRoutes('ewc', '/api/ewc');
+
+// Serve static frontend files in production
+const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(FRONTEND_DIST)) {
+    app.use(express.static(FRONTEND_DIST));
+    // Handle client-side routing - serve index.html for all non-API routes
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+            res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+        }
+    });
+    console.log('Serving frontend from:', FRONTEND_DIST);
+}
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

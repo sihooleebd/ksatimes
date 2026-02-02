@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+    volumes:
+      # Persist uploaded files and data
+      - ./server/data:/app/server/data
+      - ./server/uploads:/app/server/uploads
+    restart: unless-stopped
+  # Development mode - uncomment to use
+  # dev:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "5173:5173"
+  #     - "3001:3001"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+  #   volumes:
+  #     - .:/app
+  #     - /app/node_modules
+  #     - /app/server/node_modules

@@ -17,7 +17,7 @@ const pageVariants = {
         y: 0,
         transition: {
             duration: 0.5,
-            ease: [0.22, 1, 0.36, 1], // Custom bezier curve
+            ease: [0.22, 1, 0.36, 1] as const,
         },
     },
     exit: {
@@ -25,7 +25,7 @@ const pageVariants = {
         y: -20,
         transition: {
             duration: 0.3,
-            ease: [0.22, 1, 0.36, 1],
+            ease: [0.22, 1, 0.36, 1] as const,
         },
     },
 };

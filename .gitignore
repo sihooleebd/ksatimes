@@ -13,6 +13,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+server/.env
 
 # Logs
 logs/
@@ -50,6 +51,7 @@ public/sources/
 
 # Database/data files
 server/data/magazines.json
+server/data/entries.json
 
 # Cache
 .cache/
